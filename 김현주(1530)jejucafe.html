@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>제주 카페·맛집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root{
+  --bg:#fff4ee; --card:#fffdfb; --text:#5a3e4b; --muted:#9a7d8c; --line:#ffd3df;
+  --accent:#f0568a; --accent-soft:#ffe0ea; --cafe:#2fae8f; --food:#f08a3c; --chip:#ffeaf1;
+  --on-accent:#fff; --sky:#ffe9b8; --shadow:rgba(240,86,138,.18);
+}
+:root[data-theme="dark"]{
+  --bg:#2a2038; --card:#362a47; --text:#fbeaf3; --muted:#c3acca; --line:#54426b;
+  --accent:#ff8fb3; --accent-soft:#4d3350; --cafe:#6fe0c3; --food:#ffae7a; --chip:#43355a;
+  --on-accent:#2a2038; --sky:#4a3a5e; --shadow:rgba(0,0,0,.35);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#2a2038; --card:#362a47; --text:#fbeaf3; --muted:#c3acca; --line:#54426b;
+    --accent:#ff8fb3; --accent-soft:#4d3350; --cafe:#6fe0c3; --food:#ffae7a; --chip:#43355a;
+    --on-accent:#2a2038; --sky:#4a3a5e; --shadow:rgba(0,0,0,.35);
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;line-height:1.5;padding-bottom:84px}
+header{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line);padding:14px 16px 10px}
+.wrap{max-width:1100px;margin:0 auto}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-size:1.25rem;margin:0;flex:1 1 auto}
+h1 small{font-weight:400;color:var(--muted);font-size:.8rem;margin-left:6px}
+input[type=search],select{font:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+input[type=search]{flex:1 1 180px;min-width:0;max-width:300px}
+button{font:inherit;color:var(--text);cursor:pointer}
+.icon-btn{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{background:var(--chip);border:1px solid transparent;border-radius:999px;padding:4px 12px;font-size:.85rem}
+.chip[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.row2{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.count{color:var(--muted);font-size:.85rem;margin-left:auto}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s,box-shadow .15s}
+.card.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.meta{display:flex;gap:6px;align-items:center;font-size:.75rem}
+.tag{padding:2px 8px;border-radius:999px;font-weight:600;color:#fff}
+.tag.c{background:var(--cafe)} .tag.f{background:var(--food)}
+.area{color:var(--muted)}
+.score{margin-left:auto;font-weight:700;color:var(--accent)}
+.card h2{font-size:1.05rem;margin:0}
+.card p{margin:0;color:var(--muted);font-size:.9rem;flex:1}
+.actions{display:flex;gap:8px;align-items:center}
+.pick{flex:1;background:var(--chip);border:1px solid var(--line);border-radius:10px;padding:7px;font-size:.9rem}
+.card.sel .pick{background:var(--accent);color:#fff;border-color:var(--accent)}
+.src{font-size:.85rem;color:var(--accent);text-decoration:none;padding:7px 10px;border:1px solid var(--line);border-radius:10px}
+.empty{text-align:center;color:var(--muted);padding:60px 0}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:12px 16px;z-index:20}
+.bar .wrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bar strong{color:var(--accent)}
+.bar button{border:1px solid var(--line);background:var(--chip);border-radius:10px;padding:8px 14px}
+.bar button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.bar .sp{flex:1}
+dialog{width:min(560px,calc(100vw - 24px));max-height:86vh;border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--text);padding:16px;overflow:auto}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+.dlg-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.dlg-head h2{margin:0;font-size:1.1rem}
+.stops{list-style:none;margin:0;padding:0}
+.stop{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed var(--line)}
+.stop .no{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:grid;place-items:center;font-size:.85rem}
+.stop .info{flex:1;min-width:0}
+.stop .info b{display:block}
+.stop .info span{font-size:.8rem;color:var(--muted)}
+.stop .info a{font-size:.8rem;color:var(--accent);margin-right:8px}
+.stop .ctl button{border:1px solid var(--line);background:var(--chip);border-radius:8px;padding:4px 8px;margin-left:2px}
+.stop .ctl button:disabled{opacity:.35;cursor:default}
+.route-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.route-actions a,.route-actions button{border:1px solid var(--line);background:var(--chip);border-radius:10px;padding:8px 14px;text-decoration:none;color:var(--text);font-size:.9rem}
+.route-actions a.main{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.note{font-size:.8rem;color:var(--muted);margin:10px 0 0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---- 귀여운 테마 ---- */
+body{background-color:var(--bg);background-image:radial-gradient(var(--line) 1.5px,transparent 1.5px);background-size:22px 22px}
+h1,.chip,.pick,.bar button,.route-actions a,.route-actions button,.dlg-head h2,.card h2,.tag,.score,.stop .no{font-family:"Jua","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;font-weight:400}
+header{background:linear-gradient(180deg,var(--sky),var(--bg));border-bottom:0;border-radius:0 0 28px 28px;box-shadow:0 6px 16px var(--shadow);padding:16px 16px 14px}
+h1{font-size:1.7rem;color:var(--accent);text-shadow:2px 2px 0 var(--accent-soft)}
+h1 small{font-family:system-ui,"Malgun Gothic",sans-serif;font-size:.8rem;background:var(--card);border:2px dashed var(--line);border-radius:999px;padding:2px 10px;text-shadow:none}
+input[type=search],select,.icon-btn{border:2px solid var(--line);border-radius:999px;padding:8px 16px}
+input[type=search]:focus{border-color:var(--accent);outline:none}
+.icon-btn{transition:transform .2s} .icon-btn:hover{transform:rotate(20deg) scale(1.1)}
+.chip{border:2px solid var(--line);background:var(--card);padding:5px 14px;transition:transform .15s,background .15s}
+.chip:hover{transform:translateY(-2px) rotate(-2deg)}
+.chip[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:var(--accent);box-shadow:0 3px 0 var(--shadow)}
+.grid{gap:18px}
+.card{border:2px solid var(--line);border-radius:24px;padding:16px;box-shadow:0 5px 0 var(--line);transition:transform .2s,box-shadow .2s,border-color .2s}
+.card:hover{transform:translateY(-4px) rotate(-.6deg);box-shadow:0 9px 0 var(--line)}
+.card.sel{border:2px dashed var(--accent);box-shadow:0 5px 0 var(--accent-soft);background:linear-gradient(180deg,var(--accent-soft),var(--card) 55%)}
+.tag{color:var(--on-accent);padding:3px 10px}
+.tag.c{color:#fff} .tag.f{color:#fff}
+.card h2{font-size:1.2rem}
+.pick{border:2px solid var(--line);background:var(--card);border-radius:999px;transition:transform .15s}
+.pick:hover{transform:scale(1.04)} .pick:active{transform:scale(.94)}
+.card.sel .pick{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.src{border:2px solid var(--line);border-radius:999px;padding:6px 12px}
+.bar{left:12px;right:12px;bottom:12px;border:2px solid var(--line);border-radius:999px;box-shadow:0 6px 18px var(--shadow);padding:10px 18px}
+.bar button{border:2px solid var(--line);background:var(--card);border-radius:999px;transition:transform .15s}
+.bar button:hover{transform:translateY(-2px)}
+.bar button.on,.bar #route{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+dialog{width:min(760px,calc(100vw - 24px));border:3px solid var(--line);border-radius:28px;box-shadow:0 12px 40px var(--shadow)}
+dialog::backdrop{background:rgba(90,62,75,.45);backdrop-filter:blur(2px)}
+.dlg-head h2{font-size:1.4rem;color:var(--accent)}
+.stop{border-bottom:2px dotted var(--line)}
+.stop .no{background:var(--accent);color:var(--on-accent);box-shadow:0 2px 0 var(--shadow)}
+.stop .ctl button{border:2px solid var(--line);background:var(--card);border-radius:999px}
+.route-actions a,.route-actions button{border:2px solid var(--line);background:var(--card);border-radius:999px;padding:8px 16px}
+.route-actions a.main{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+#map{height:320px;border-radius:20px;border:3px solid var(--line);margin-bottom:10px;overflow:hidden;z-index:0}
+#map[hidden]{display:none}
+#routeInfo{margin:0 0 8px;font-size:.9rem;color:var(--muted);min-height:1.3em}
+.pin span{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--on-accent);border:3px solid #fff;box-shadow:0 3px 6px rgba(0,0,0,.3);font:400 .95rem "Jua",sans-serif}
+.pin.approx span{border-style:dashed;border-color:#fff;opacity:.8}
+:root[data-theme="dark"] .leaflet-tile-pane{filter:brightness(.72) contrast(1.1) saturate(.8)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .leaflet-tile-pane{filter:brightness(.72) contrast(1.1) saturate(.8)}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <h1>🍊 제주 카페·맛집 <small id="sub"></small></h1>
+      <input type="search" id="q" placeholder="이름·설명 검색" aria-label="검색">
+      <button class="icon-btn" id="theme" aria-label="다크모드 전환">🌓</button>
+    </div>
+    <div class="chips" id="catChips" role="group" aria-label="분류"></div>
+    <div class="chips" id="areaChips" role="group" aria-label="지역"></div>
+    <div class="row2">
+      <label>정렬
+        <select id="sort">
+          <option value="score">점수 높은 순</option>
+          <option value="name">이름 순</option>
+          <option value="area">지역 순</option>
+        </select>
+      </label>
+      <span class="count" id="count"></span>
+    </div>
+  </div>
+</header>
+<main><div class="grid" id="grid"></div></main>
+<div class="bar"><div class="wrap">
+  <span>선택한 곳 <strong id="selCount">0</strong>개</span>
+  <span class="sp"></span>
+  <button id="onlySel">선택 목록 보기</button>
+  <button id="route">🗺 경로 보기</button>
+  <button id="clear">선택 해제</button>
+</div></div>
+
+<dialog id="routeDlg" aria-labelledby="routeTitle">
+  <div class="dlg-head"><h2 id="routeTitle">내 경로</h2><button class="icon-btn" id="routeClose" aria-label="닫기">✕</button></div>
+  <div id="map" hidden></div>
+  <p id="routeInfo"></p>
+  <div id="routeBody"></div>
+</dialog>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+<script>
+const REGION = "제주특별자치도";
+const AREAS = ["제주시 연동·노형","제주시 원도심·공항","애월읍","한림읍·한경면","조천읍(함덕)","구좌읍","성산읍·우도면","표선면·남원읍","서귀포시내","중문·예래","안덕면","대정읍·모슬포"];
+const PFX = {sk:"https://www.siksinhot.com/toplists/best/", sm:"https://www.siksinhot.com/theme/magazine/", po:"https://polle.com/"};
+const D = [];
+function add(a, rows){
+  rows.forEach(r=>{
+    let s = r[4] || "";
+    const m = s.match(/^(sk|sm|po):(.*)$/);
+    if(m) s = PFX[m[1]] + m[2];
+    D.push({name:r[0], category:r[1]==="c"?"카페":"음식점", area:AREAS[a], description:r[2], score:r[3], source:s});
+  });
+}
+const VOGUE = "https://www.vogue.co.kr/?p=479153", HPH = "https://hotplacehunter.co.kr/?p=88430", TRIP = "https://kr.trip.com/moments/detail/seogwipo-14755-146509204/", DAUM = "https://m.cafe.daum.net/subdued20club/LxCT/311561";
+
+add(0,[
+["올래국수","f","연동 고기국수 전문점. 공항에서 가까워 첫 끼로 소개됨",80,"https://brunch.co.kr/@easystep/63"],
+["늘봄흑돼지","f","노형동 흑돼지 구이. 넓은 전용 주차장, 점심특선 운영",70,"sm:18094"],
+["하르방밀면 노형점","f","노형동 밀면 전문점. 맞은편 공영주차장 이용",70,"sm:18172"],
+["갈치정원","f","노형동 갈치 세트. 유아의자·넓은 좌석 정보 있음",70,"sm:18104"],
+["신사꽃게당 제주점","f","노형동 꽃게 요리. 무료 주차 안내",70,"sm:18172"],
+["담가화로구이","f","노형동 화로 소고기구이. 면·계란찜 곁들임 메뉴",60,"sm:18104"],
+["참맛나김밥","f","노형동 김밥·국수 조합. 주차 공간 제한적",60,"sm:18094"]
+]);
+add(1,[
+["우진해장국","f","삼도동 고사리육개장 해장국집",80],
+["삼대국수회관","f","삼도동 고기국수 전문점",80],
+["김만복김밥","f","전복김밥으로 알려진 김밥집(건입동)",70],
+["광명식당","f","동문시장 인근 식당(신흥 맛집 목록에 소개)",60,"sk:ahnplace85"],
+["앙뚜아네트","c","제주공항 근처 오션뷰 베이커리 카페",70,"https://www.ieconomyu.com/jeju-ocean-view-cafe-spring/"]
+]);
+add(2,[
+["레이지펌프","c","애월 바다를 품은 오션뷰 카페(1~2층)",80,HPH],
+["애월더선셋","c","애월 바다 전망 카페",70,"https://www.marieclairekorea.com/?p=375413"],
+["애월빵공장앤카페","c","현무암쌀빵이 대표 메뉴, 연중무휴",80,"https://info.koreacharts.com/tour/2791306/contents.html"],
+["골목카페옥수","c","소길리 마을 골목의 빈티지 구옥 카페",70,"https://www.trvlogue.com/ko/aewol-alley-cafe-oksoo"],
+["커피 냅 로스터스","c","애월읍 빈티지 분위기 로스터리 카페",60,"https://sejong-daek.tistory.com/161"],
+["하이엔드제주","c","애월 인생 카페 목록에 소개된 카페",60,"sk:ahnnews18"],
+["제주당 베이커리 카페","c","새별오름 부근, 제주 식재료 메뉴 베이커리 카페",70,"po:concord4606"],
+["더애월 본점","f","흑돼지 두루치기·아침식사로 알려진 애월 맛집",80],
+["후프 바베큐","f","바다뷰 좌석, 플래터·비프립 메뉴(예약 권장)",70,"po:sportsforerunner"]
+]);
+add(3,[
+["앤트러사이트","c","협재·한림권 대표 카페로 목록에 소개",80,"sk:030361_jeju"],
+["우유부단","c","협재 인근 카페",60,"sk:030361_jeju"],
+["하우스레서피","c","협재 인근 카페",60,"sk:030361_jeju"],
+["헤이피피 카페","c","한경면 판포포구 앞 카페",60,DAUM],
+["오크라","f","협재 경양식 식당",60,"sk:030361_jeju"],
+["만민식당","f","협재 해물찜·해물탕",60,"sk:030361_jeju"],
+["협재수우동","f","협재 우동·소바",60,"sk:030361_jeju"],
+["옹포별장가든","f","한림 옹포 한정식",60,"sk:030361_jeju"],
+["묘한 식당","f","흑돼지 안심 돔베카츠·칠리딱새우 파스타, 환상숲곶자왈공원 앞",70,VOGUE]
+]);
+const HD = "https://polle.com/posts/tag/%ED%95%A8%EB%8D%95";
+add(4,[
+["카페 델문도","c","함덕해수욕장 앞 뷰 맛집 카페",80,HD],
+["귤꽃","c","감귤농장 카페",60,"sk:052001_Hamdeok"],
+["바람벽에흰당나귀","c","함덕권 카페",60,"sk:052001_Hamdeok"],
+["카페세바","c","함덕권 카페",60,"sk:052001_Hamdeok"],
+["깡촌흑돼지","f","함덕 흑돼지·돼지구이",70,"sk:052001_Hamdeok"],
+["잠녀해녀촌","f","함덕 한정식",60,"sk:052001_Hamdeok"],
+["다래향","f","함덕 중식",60,"sk:052001_Hamdeok"],
+["고집돌우럭","f","함덕 횟집",70,"sk:052001_Hamdeok"],
+["은희네해장국 함덕점","f","함덕해수욕장 인근 해장국",70,HD],
+["그때그집","f","함덕 흑돼지 김치찌개 점심특선",70,HD],
+["선흘방주할머니식당","f","선흘 두부·순두부 식당",60,"sk:052001_Hamdeok"]
+]);
+add(5,[
+["모알보알","c","김녕 동남아풍 감성 카페(노키즈존)",80,HPH],
+["롯지먼트","c","김녕 구옥 개조 카페, 휘낭시에",60,"po:place/1R3Mfg/%EB%A1%AF%EC%A7%80%EB%A8%BC%ED%8A%B8"],
+["런던베이글뮤지엄","c","김녕 베이글·베이커리",70,"sk:031274_Gimnyeong"],
+["오라이","c","김녕 카페",60,"sk:031274_Gimnyeong"],
+["카페 공회당","c","종달리 카페. 공회당커피·그릭요거트볼",70,"https://autoreserve.com/fr/restaurants/iWiETVG8yDPiyP7pJYzV"],
+["스타벅스 더제주송당파크R점","c","송당 리저브 매장, 09:00~20:00",70,HPH],
+["술의식물원","c","김녕 카페",60,"sk:031274_Gimnyeong"],
+["카페 글렌코","c","김녕 카페",60,"sk:031274_Gimnyeong"],
+["몽탄","f","김녕 소고기(꽃등심·차돌박이) 구이",70,"sk:031274_Gimnyeong"],
+["치저스","f","김녕 아시아 퓨전 음식점",60,"sk:031274_Gimnyeong"],
+["종달리엔","f","종달리 돈가스·카레",60,"sk:031274_Gimnyeong"],
+["곰막","f","김녕 횟집",60,"sk:031274_Gimnyeong"],
+["그릉그릉파스타","f","세화 제주산 재료 파스타·리조토",70,VOGUE],
+["호자","f","세화 돈가스(치킨텐더 느낌)",60,"https://damoang.net/free/681238"]
+]);
+add(6,[
+["서귀피안 베이커리","c","신양섭지해수욕장 오션뷰 베이커리 카페",80,"po:concord4606"],
+["프릳츠 제주 성산점","c","성산일출봉 인근, 카페·갤러리·굿즈숍",80,"https://www.elle.co.kr/article/1885649"],
+["카페 오른","c","성산 바다뷰 카페",70,"https://www.gqkorea.co.kr/?p=232858"],
+["블랑로쉐","c","성산·우도 카페 목록에 소개",60,"sk:022134_jeju"],
+["훈데르트윈즈","c","우도 땅콩 아이스크림·베이커리, 천진항 인근",70,"https://mom-mom.net/travel/places/64670d4b8d5c34cc939361d1"],
+["슈가탱크","c","성산 카페",60,"sk:022134_jeju"],
+["해일리 카페","c","성산 카페",60,"sk:ahnplace85"],
+["오조해녀의집","f","성산 오조리 해산물·조개",70,"sk:022134_jeju"],
+["섭지해녀의집","f","섭지코지 인근 해녀의집",70,"sk:022134_jeju"],
+["성산포 뚝배기","f","성산 뚝배기 식당",60,"sk:022134_jeju"],
+["소라네집","f","성산 횟집",60,"sk:022134_jeju"]
+]);
+add(7,[
+["표선 해녀의집","f","갈치조림·문어숙회·물회",70,"po:concord4606"],
+["가시아방국수","f","가시리 고기국수",70],
+["송원가든","f","의귀리 닭 요리(삼계탕·토종닭 샤부), 예약 권장",70,VOGUE],
+["랑이식당","f","한남리 동네 식당. 만두·밀푀유 나베, 저녁 예약제",70,VOGUE]
+]);
+add(8,[
+["베케","c","돌무더기(베케)를 뜻하는 정원 카페",70,"sk:021992_jeju"],
+["카페 귤꽃다락","c","서귀포 신시가지 인근 귤 테마 카페·디저트",60,"po:nabi4347"],
+["서귀다원","c","녹차밭 전망, 감귤정과",70,"po:concord4606"],
+["네거리식당","f","갈치국·갈치조림·고등어 한정식",80,"sk:021992_jeju"],
+["천일만두","f","서귀포 중앙로터리 인근 만두집",70,"sk:021992_jeju"],
+["형아시횟집","f","강정천 인근 가성비 횟집, 14~17시 브레이크타임(2022년 글 기준)",60,"https://m.cafe.daum.net/softman00/kKiw/250"],
+["제주오리집","f","강정동 오리주물럭·오리탕",60,TRIP],
+["웅담식당","f","서귀포 신흥 맛집 목록에 소개",60,"sk:ahnplace85"]
+]);
+add(9,[
+["더 클리프","c","중문 바다 앞 카페&펍, 낮밤 분위기가 다름",80,"po:nabi4347"],
+["바다다","c","중문 카페",60,"sk:ahnnews18"],
+["카페2472","c","중문 카페",60,"sk:ahnnews18"],
+["카노푸스 카페","c","중문 해수욕장·바다 조망 호텔 정원 카페",60,"po:concord4606"],
+["중문 수두리 보말칼국수","f","보말칼국수·죽",70,"po:nabi4347"],
+["함쉐프키친짬뽕 서귀포 본점","f","중문관광단지 짬뽕집",60,TRIP],
+["그린정","f","제주 특산물 요리",60,"sk:021631_jeju"],
+["더 파크뷰","f","해산물 중심 고급 식사, 모임용",60,"po:nabi4347"]
+]);
+add(10,[
+["카페 루시아","c","대평(난드르) 바다 전망, 반려견 가능",70,"po:nabi4347"],
+["바램목장 & 카페","c","안덕면 목장 카페",60,DAUM],
+["오설록 티뮤지엄","c","서광리 녹차 전문 카페·티뮤지엄",70],
+["올레마당","f","산방산 조망, 생선구이 세트·전복뚝배기",70,"po:concord4606"],
+["한라산 아래 첫 마을","f","중산간 메밀 요리(비비작작면·메밀전)",60,"po:nabi4347"]
+]);
+add(11,[
+["감저","c","모슬포 카페",60,"sk:021631_jeju"],
+["카페 데스틸","c","모슬포 카페",60,"sk:021631_jeju"],
+["미쁜제과","c","모슬포 제과·카페",60,"sk:021631_jeju"],
+["홍성방","f","게 한 마리 해물짬뽕·고기짬뽕",80,"sk:021631_jeju"],
+["만선식당","f","생선구이·조림",70,"sk:021631_jeju"],
+["부두식당","f","해물탕·해물요리",70,"sk:021631_jeju"],
+["덕승식당","f","모슬포 식당",60,"sk:021631_jeju"],
+["산방식당","f","모슬포·대정 식당 목록에 소개",60,"sk:021631_jeju"],
+["미영이네식당","f","모슬포 신흥 맛집 목록에 소개",60,"sk:ahnplace85"]
+]);
+
+// 추가 카페 (웹 검색 기반, 방문 전 영업 여부 확인 필요)
+const DC = "https://www.diningcode.com/list.dc?query=";
+add(0,[
+["노론존","c","노형동 카페. 파란색 가구·조명·그림이 가득한 공간, 작업·소모임용 테이블 다양(도령로 50 이화오피스텔 중2층)",70,"https://udcy.me/space/?bmode=view&idx=5603067"],
+["너흐 제주","c","노형동 카페. 다이닝코드 노형 카페 목록 상위(방문자 평점 4.9, 표본 적음)",60,DC+"%EB%85%B8%ED%98%95+%EC%B9%B4%ED%8E%98"],
+["카페 레크레 제주","c","노형동 카페. 다이닝코드 노형 카페 목록 소개(평점 4.8, 표본 적음)",60,DC+"%EB%85%B8%ED%98%95+%EC%B9%B4%ED%8E%98"],
+["그러므로part2 한라수목원","c","노형동 한라수목원 인근 카페. 다이닝코드 노형 카페 목록 소개",60,DC+"%EB%85%B8%ED%98%95+%EC%B9%B4%ED%8E%98"]
+]);
+add(7,[
+["노베케이션","c","표선해수욕장이 내다보이는 통창 뷰 카페. 휘낭시에·커피 평 좋음(민속해안로 635), 주차 2대 정도",70,"po:place/57Qc6G/%EB%85%B8%EB%B2%A0%EC%BC%80%EC%9D%B4%EC%85%98"],
+["남쪽바람","c","남원 조용한 카페. 갓 구운 스콘이 인기, 근처 감귤밭(태수로143번길 133-4)",70,"po:place/16nEja/%EB%82%A8%EC%AA%BD%EB%B0%94%EB%9E%8C"],
+["와랑와랑","c","위미 차밭 풍경 카페(위미중앙로300번길 28). 커피 호평, 신축 냄새 아쉽다는 후기도 있음",60]
+]);
+add(8,[
+["유동커피","c","서귀동 로스터리 카페(태평로 406-1), 이중섭거리 인근. 08시 오픈, 다금바리 녹차빙수, 주차 불가",70,"https://www.siksinhot.com/P/370562"],
+["올디벗구디","c","올디커피·흑임자크림 구디커피가 시그니처(일주서로 330)",60,"po:place/4DNv0O/%EC%98%AC%EB%94%94%EB%B2%97%EA%B5%AC%EB%94%94"],
+["고미 커피","c","서홍동 아늑한 카페, 스콘이 인기 메뉴",60,"https://triple.guide/restaurants/12fc1158-f2cd-4201-9f88-2c28c10f2b23"],
+["테라로사 쇠소깍","c","칠십리로 쇠소깍 인근 커피 카페(다이닝코드 평점 4.3)",70,DC+"%EC%84%9C%EA%B7%80%ED%8F%AC%EC%8B%9C+%EC%B9%A0%EC%8B%AD%EB%A6%AC%EB%A1%9C"],
+["허니문하우스 서귀포","c","경관·야경이 좋은 테라스가 특징(다이닝코드 평점 4.1)",70,DC+"%EC%84%9C%EA%B7%80%ED%8F%AC%EC%8B%9C+%EC%B9%A0%EC%8B%AD%EB%A6%AC%EB%A1%9C"],
+["그라미니 서귀포","c","바다와 자구리공원이 가까워 전망이 좋다는 후기",60,DC+"%EC%84%9C%EA%B7%80%ED%8F%AC%EC%8B%9C+%EC%B9%A0%EC%8B%AD%EB%A6%AC%EB%A1%9C"],
+["블루샥 동홍점","c","동홍동 카페. 다이닝코드 동홍동 카페 목록 상위(평점 5.0, 표본 적음)",60,DC+"%EC%A0%9C%EC%A3%BC+%EC%84%9C%EA%B7%80%ED%8F%AC%EC%8B%9C+%EB%8F%99%ED%99%8D%EB%8F%99&keyword=%EC%B9%B4%ED%8E%98"],
+["제철과사람","c","동홍동 카페. 다이닝코드 동홍동 카페 목록 상위(평점 5.0, 표본 적음)",60,DC+"%EC%A0%9C%EC%A3%BC+%EC%84%9C%EA%B7%80%ED%8F%AC%EC%8B%9C+%EB%8F%99%ED%99%8D%EB%8F%99&keyword=%EC%B9%B4%ED%8E%98"],
+["오리너구리","c","동홍동 카페. 다이닝코드 동홍동 카페 목록 소개(평점 4.5)",60,DC+"%EC%A0%9C%EC%A3%BC+%EC%84%9C%EA%B7%80%ED%8F%AC%EC%8B%9C+%EB%8F%99%ED%99%8D%EB%8F%99&keyword=%EC%B9%B4%ED%8E%98"],
+["펠릭스","c","서홍동 카페. 다이닝코드 서홍동 카페 목록 상위(평점 4.0)",60,DC+"%EC%A0%9C%EC%A3%BC+%EC%84%9C%EA%B7%80%ED%8F%AC%EC%8B%9C+%EC%84%9C%ED%99%8D%EB%8F%99&keyword=%EC%B9%B4%ED%8E%98"]
+]);
+
+// 추가 음식점 (웹 검색 기반, 방문 전 영업 여부·휴무 확인 필요)
+const OLLE = "https://tour.click1-tip.com/entry/%EC%84%9C%EA%B7%80%ED%8F%AC-%EC%98%AC%EB%A0%88%EC%8B%9C%EC%9E%A5-%EB%A7%9B%EC%A7%91-%EB%B2%A0%EC%8A%A4%ED%8A%B8-%ED%98%84%EC%A7%80%EC%9D%B8-%EC%B6%94%EC%B2%9C";
+const DH = "https://www.diningcode.com/list.dc?query=%EB%8F%99%ED%99%8D%EB%8F%99";
+add(8,[
+["올레강민","f","올레시장 안 횟집, 딱새우회로 알려진 현지인 회 맛집. 실내 식사 가능",70,OLLE],
+["남매네왕갈치","f","올레시장 지하. 갈치조림·고등어구이 한상, 09:00~20:00(LO 19:20), 혼밥 편함",70,OLLE],
+["해뜨는집","f","중앙로62번길 27. 숯불 흑돼지·600g 갈비 세트, 올레시장 주차장 이용 가능",70,OLLE],
+["금복식당","f","올레시장 인근, 저렴한 점심으로 언급된 식당",60,OLLE],
+["자리돔횟집","f","동홍동로 7. 고등어회·자리회 추천, 매주 화요일 휴무",70,OLLE],
+["남매내흑돼지 서귀포점","f","숙성 흑돼지 전문점(2024년 블로그 순위 상위)",70,OLLE],
+["칠돈가 서귀포점","f","일주동로 8800 1층. 직원이 구워주는 흑돼지 근고기(후기 기준 2인 66,000원)",70,"sm:11760"],
+["괴기집","f","동홍동 흑돼지 맛집, 제주 흑돈 직접 공급 소개. 11:30~22:30 연중무휴(기사 기준)",70,"https://www.pinpointnews.co.kr/news/articleView.html?idxno=6725"],
+["한길정","f","서홍동 흑돼지 구이 전문점(오래된 후기, 가격은 참고만)",60,"https://naebido.com/1769"],
+["서귀포돈꽃","f","동홍동 돼지고기 전문점. 파무침·된장찌개·볶음밥 호평",60,DH],
+["풍년식당","f","보말칼국수·고기국밥, 다이닝코드 동홍동 목록 소개",60,DH],
+["제주제일밀면 서귀포","f","밀면·고기국수 메뉴, 다이닝코드 동홍동 목록 소개",60,DH],
+["맛있는집 서귀포","f","갈치국·각재기국 메뉴, 다이닝코드 동홍동 목록 소개",60,DH]
+]);
+
+const KEY = "jejucafe.selected.v1";
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let selected = new Set();
+try { selected = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch(e){}
+const saveSel = () => { try { localStorage.setItem(KEY, JSON.stringify([...selected])); } catch(e){} };
+
+const state = {cat:"전체", area:"전체", q:"", sort:"score", onlySel:false};
+
+function chips(el, values, key){
+  el.innerHTML = values.map(v => `<button class="chip" data-v="${esc(v)}" aria-pressed="${state[key]===v}">${esc(v)}</button>`).join("");
+  el.onclick = e => {
+    const b = e.target.closest(".chip"); if(!b) return;
+    state[key] = b.dataset.v;
+    el.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.v === state[key]));
+    render();
+  };
+}
+chips($("catChips"), ["전체","카페","음식점"], "cat");
+chips($("areaChips"), ["전체", ...AREAS], "area");
+$("sub").textContent = REGION + " · " + D.length + "곳";
+
+function render(){
+  const q = state.q.trim().toLowerCase();
+  let list = D.filter(d =>
+    (state.cat==="전체" || d.category===state.cat) &&
+    (state.area==="전체" || d.area===state.area) &&
+    (!state.onlySel || selected.has(d.name)) &&
+    (!q || (d.name + " " + d.description + " " + d.area).toLowerCase().includes(q)));
+  const cmp = {
+    score:(a,b)=>b.score-a.score || a.name.localeCompare(b.name,"ko"),
+    name:(a,b)=>a.name.localeCompare(b.name,"ko"),
+    area:(a,b)=>AREAS.indexOf(a.area)-AREAS.indexOf(b.area) || b.score-a.score
+  }[state.sort];
+  list.sort(cmp);
+  $("count").textContent = list.length + "곳 표시";
+  $("grid").innerHTML = list.length ? list.map(d => {
+    const on = selected.has(d.name);
+    return `<article class="card${on?" sel":""}">
+      <div class="meta"><span class="tag ${d.category==="카페"?"c":"f"}">${d.category==="카페"?"☕":"🍴"} ${d.category}</span><span class="area">${esc(d.area)}</span><span class="score">★ ${d.score}</span></div>
+      <h2>${esc(d.name)}</h2><p>${esc(d.description)}</p>
+      <div class="actions"><button class="pick" data-n="${esc(d.name)}" aria-pressed="${on}">${on?"💖 담았어요":"🤍 담기"}</button>
+      ${d.source ? `<a class="src" href="${esc(d.source)}" target="_blank" rel="noopener noreferrer">출처 ↗</a>` : ""}</div>
+    </article>`;
+  }).join("") : `<div class="empty">조건에 맞는 곳이 없어요.</div>`;
+  $("selCount").textContent = selected.size;
+  $("onlySel").classList.toggle("on", state.onlySel);
+  $("onlySel").textContent = state.onlySel ? "전체 목록 보기" : "선택 목록 보기";
+  if($("routeDlg").open) renderRoute();
+}
+
+// ---- 경로 ----
+const SWEEP = ["제주시 연동·노형","제주시 원도심·공항","조천읍(함덕)","구좌읍","성산읍·우도면","표선면·남원읍","서귀포시내","중문·예래","안덕면","대정읍·모슬포","한림읍·한경면","애월읍"];
+const q = s => encodeURIComponent("제주 " + s);
+function gmapUrl(stops){
+  if(stops.length === 1) return "https://www.google.com/maps/search/?api=1&query=" + q(stops[0].name);
+  let u = "https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=" + q(stops[0].name) + "&destination=" + q(stops[stops.length-1].name);
+  if(stops.length > 2) u += "&waypoints=" + stops.slice(1,-1).map(s => q(s.name)).join("%7C");
+  return u;
+}
+// ---- 지도 (Leaflet + OpenStreetMap, 도로 경로는 OSRM 공개 서버) ----
+const CENTER = {"제주시 연동·노형":[33.488,126.484],"제주시 원도심·공항":[33.510,126.520],"애월읍":[33.462,126.330],"한림읍·한경면":[33.400,126.250],"조천읍(함덕)":[33.543,126.670],"구좌읍":[33.540,126.800],"성산읍·우도면":[33.440,126.900],"표선면·남원읍":[33.325,126.830],"서귀포시내":[33.250,126.560],"중문·예래":[33.250,126.420],"안덕면":[33.250,126.330],"대정읍·모슬포":[33.220,126.250]};
+const COORDS = {/*COORDS*/};
+function posOf(d){
+  if(COORDS[d.name]) return {ll:COORDS[d.name], exact:true};
+  const c = CENTER[d.area], k = D.indexOf(d), a = k * 2.399, r = 0.008 + (k % 5) * 0.003;
+  return {ll:[c[0] + r * Math.sin(a), c[1] + r * Math.cos(a) * 1.2], exact:false};
+}
+let map, mapLayer, routeSeq = 0;
+function drawMap(list){
+  const el = $("map");
+  if(typeof L === "undefined"){ el.hidden = false; el.innerHTML = `<div class="empty">지도를 불러오지 못했어요. 인터넷 연결을 확인해주세요.</div>`; return; }
+  el.hidden = false;
+  if(!map){
+    map = L.map(el).setView([33.38, 126.55], 9);
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {maxZoom:19, attribution:"Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors"}).addTo(map);
+    mapLayer = L.layerGroup().addTo(map);
+  }
+  map.invalidateSize();
+  mapLayer.clearLayers();
+  const color = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#f0568a";
+  const pts = list.map(posOf);
+  pts.forEach((p, i) => L.marker(p.ll, {
+    icon:L.divIcon({className:"pin" + (p.exact ? "" : " approx"), html:`<span>${i+1}</span>`, iconSize:[30,30], iconAnchor:[15,15]}),
+    title:list[i].name
+  }).bindTooltip(list[i].name + (p.exact ? "" : " (대략 위치)")).addTo(mapLayer));
+  const info = $("routeInfo"), approx = pts.filter(p => !p.exact).length;
+  const warn = approx ? ` · ${approx}곳은 정확한 좌표를 못 찾아 지역 중심 근처에 대략 표시했어요(점선 테두리)` : "";
+  if(pts.length < 2){ map.setView(pts[0].ll, 12); info.textContent = "2곳 이상 담으면 경로가 선으로 표시돼요" + warn; return; }
+  const latlngs = pts.map(p => p.ll);
+  const straight = L.polyline(latlngs, {color, weight:4, dashArray:"8 8", opacity:.85}).addTo(mapLayer);
+  map.fitBounds(L.latLngBounds(latlngs).pad(.2));
+  info.textContent = "도로 경로 계산 중…" + warn;
+  const seq = ++routeSeq;
+  fetch("https://router.project-osrm.org/route/v1/driving/" + pts.map(p => p.ll[1] + "," + p.ll[0]).join(";") + "?overview=full&geometries=geojson")
+    .then(r => r.json())
+    .then(j => {
+      if(seq !== routeSeq) return;
+      const rt = j.routes && j.routes[0];
+      if(!rt) throw 0;
+      mapLayer.removeLayer(straight);
+      L.geoJSON(rt.geometry, {style:{color, weight:5, opacity:.9}}).addTo(mapLayer);
+      info.textContent = `🚗 자동차로 약 ${(rt.distance/1000).toFixed(1)}km · ${Math.round(rt.duration/60)}분` + warn;
+    })
+    .catch(() => { if(seq === routeSeq) info.textContent = "도로 경로를 못 불러와 직선으로 표시했어요" + warn; });
+}
+
+function renderRoute(){
+  const list = [...selected].map(n => D.find(d => d.name === n)).filter(Boolean);
+  if(!list.length){
+    $("map").hidden = true; $("routeInfo").textContent = "";
+    $("routeBody").innerHTML = `<div class="empty">먼저 가고 싶은 곳을 “담기” 해주세요.</div>`;
+    return;
+  }
+  drawMap(list);
+  const chunks = [];
+  for(let i = 0; i < list.length; i += 9){ const c = list.slice(i, i + 10); if(c.length > 1 || !chunks.length) chunks.push(c); }
+  const links = chunks.map((c, i) => `<a class="main" target="_blank" rel="noopener noreferrer" href="${gmapUrl(c)}">${chunks.length > 1 ? `구글 지도 경로 ${i+1}/${chunks.length}` : "구글 지도로 경로 열기"} ↗</a>`).join("");
+  $("routeBody").innerHTML = `<ol class="stops">` + list.map((d, i) => `
+    <li class="stop"><span class="no">${i+1}</span>
+      <div class="info"><b>${esc(d.name)}</b><span>${d.category} · ${esc(d.area)}</span><br>
+        <a target="_blank" rel="noopener noreferrer" href="https://map.kakao.com/?q=${q(d.name)}">카카오맵</a>
+        <a target="_blank" rel="noopener noreferrer" href="https://map.naver.com/p/search/${q(d.name)}">네이버지도</a></div>
+      <div class="ctl"><button data-act="up" data-i="${i}" aria-label="위로" ${i===0?"disabled":""}>▲</button><button data-act="down" data-i="${i}" aria-label="아래로" ${i===list.length-1?"disabled":""}>▼</button><button data-act="del" data-i="${i}" aria-label="삭제">✕</button></div>
+    </li>`).join("") + `</ol>
+    <div class="route-actions">${links}<button data-act="sweep">지역 순(시계방향) 정렬</button></div>
+    <p class="note">순서대로 첫 곳이 출발지, 마지막 곳이 도착지로 지도에 열립니다. 이름으로 검색해 위치를 찾으므로 지도에서 장소가 맞는지 확인하세요. 구글 지도는 한 번에 최대 10곳이라 더 많으면 나눠서 엽니다.</p>`;
+}
+$("route").addEventListener("click", () => { $("routeDlg").showModal(); renderRoute(); });
+$("routeClose").addEventListener("click", () => $("routeDlg").close());
+$("routeDlg").addEventListener("click", e => { if(e.target === $("routeDlg")) $("routeDlg").close(); });
+$("routeBody").addEventListener("click", e => {
+  const b = e.target.closest("button[data-act]"); if(!b) return;
+  const arr = [...selected], i = +b.dataset.i;
+  if(b.dataset.act === "up" && i > 0) [arr[i-1], arr[i]] = [arr[i], arr[i-1]];
+  else if(b.dataset.act === "down" && i < arr.length - 1) [arr[i+1], arr[i]] = [arr[i], arr[i+1]];
+  else if(b.dataset.act === "del") arr.splice(i, 1);
+  else if(b.dataset.act === "sweep"){
+    const idx = n => SWEEP.indexOf(D.find(d => d.name === n).area);
+    arr.sort((a, c) => idx(a) - idx(c));
+  }
+  selected = new Set(arr); saveSel(); render();
+});
+
+$("grid").addEventListener("click", e => {
+  const b = e.target.closest(".pick"); if(!b) return;
+  const n = b.dataset.n;
+  selected.has(n) ? selected.delete(n) : selected.add(n);
+  saveSel(); render();
+});
+$("q").addEventListener("input", e => { state.q = e.target.value; render(); });
+$("sort").addEventListener("change", e => { state.sort = e.target.value; render(); });
+$("onlySel").addEventListener("click", () => { state.onlySel = !state.onlySel; render(); });
+$("clear").addEventListener("click", () => {
+  selected.clear(); saveSel(); state.onlySel = false; render();
+});
+
+const root = document.documentElement;
+try { const t = localStorage.getItem("jejucafe.theme"); if(t) root.dataset.theme = t; } catch(e){}
+$("theme").addEventListener("click", () => {
+  const dark = root.dataset.theme ? root.dataset.theme==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("jejucafe.theme", root.dataset.theme); } catch(e){}
+});
+
+render();
+</script>
+</body>
+</html>
